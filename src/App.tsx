@@ -5,8 +5,8 @@ import { SxProps } from "@mui/material/styles";
 const commonStyles: SxProps = {
 	border: 2,
 	borderRadius: 1,
-	height: "20vh",
 	margin: 0.5,
+	aspectRatio : 1.2,
 }
 
 function Board() {
@@ -34,7 +34,7 @@ function Board() {
 		)
 	}
 	return (
-		<Grid sx={{ margin: "auto", maxWidth: 600}}>
+		<Grid sx={{ margin: "auto", maxWidth: 800}}>
 			{cells}
 		</Grid>
 	)
