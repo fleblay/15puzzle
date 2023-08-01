@@ -15,6 +15,100 @@ const commonStyles: SxProps = {
 	backgroundColor: "lightsteelblue"
 }
 
+type Pos2D = {
+	X: number,
+	Y: number,
+}
+
+var winGrid: number[][] = [
+	[1, 2, 3, 4],
+	[12, 13, 14, 5],
+	[11, 0, 15, 6],
+	[10, 9, 8, 7],
+]
+
+var flatWinGrid: number[] = [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7]
+
+function isEqual(a: number[], b: number[]): boolean {
+	if (a.length != b.length)
+		return false
+	for (let i = 0; i < a.length; i++) {
+		if (a[i] !== b[i])
+			return false
+	}
+	return true
+}
+
+function getEmptySpot(board: number[][]): Pos2D {
+	for (let i = 0; i < 4; i++) {
+		for (let j = 0; j < 4; j++) {
+			if (board[i][j] == 0)
+				return { Y: i, X: j }
+		}
+	}
+	return { Y: -1, X: -1 }
+}
+
+function expandArray(board: number[]): number[][] {
+	const expandedArray: number[][] = []
+	for (let i = 0; i < 4; i++) {
+		expandedArray.push(
+			board.slice(4 * i, 4 * (i + 1))
+		)
+	}
+	return expandedArray
+}
+
+function flattenArray(board: number[][]): number[] {
+	const flattenedArray: number[] = []
+	for (let i = 0; i < 4; i++) {
+		for (let j = 0; j < 4; j++) {
+			flattenedArray.push(board[i][j])
+		}
+	}
+	return flattenedArray
+}
+
+function moveUp(board: number[]): number[] {
+	const expandedArray: number[][] = expandArray(board)
+	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
+	if (posEmtpySpot.Y > 0) {
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y - 1][posEmtpySpot.X]
+		expandedArray[posEmtpySpot.Y - 1][posEmtpySpot.X] = 0
+	}
+	return flattenArray(expandedArray)
+}
+
+function moveDown(board: number[]): number[] {
+	const expandedArray: number[][] = expandArray(board)
+	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
+	if (posEmtpySpot.Y < 4 - 1) {
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y + 1][posEmtpySpot.X]
+		expandedArray[posEmtpySpot.Y + 1][posEmtpySpot.X] = 0
+	}
+	return flattenArray(expandedArray)
+}
+
+function moveLeft(board: number[]): number[] {
+	const expandedArray: number[][] = expandArray(board)
+	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
+	if (posEmtpySpot.X > 0) {
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y][posEmtpySpot.X - 1]
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X - 1] = 0
+	}
+	return flattenArray(expandedArray)
+}
+
+function moveRight(board: number[]): number[] {
+	const expandedArray: number[][] = expandArray(board)
+	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
+	if (posEmtpySpot.X < 4 - 1) {
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y][posEmtpySpot.X + 1]
+		expandedArray[posEmtpySpot.Y][posEmtpySpot.X + 1] = 0
+	}
+	return flattenArray(expandedArray)
+}
+
 function Row({ index, input }: { index: number, input: number[] }) {
 	const cells: React.ReactElement[] = []
 	for (let i = 0; i < 4; i++) {
@@ -36,23 +130,91 @@ function Row({ index, input }: { index: number, input: number[] }) {
 
 function Board({ input }: { input: number[] }) {
 	const [board, setBoard] = useState<number[]>(input)
+	const [text, setText] = useState<string>("")
 	const rows: React.ReactElement[] = []
 
 	function fetchBoard() {
 		axios
-			.get("http://localhost:8081/generate/4", {
-				headers: {
-				}
-			})
+			.get("http://localhost:8081/generate/4")
 			.then(({ data }: { data: { size: number, board: string } }) => {
-				const newboard: number[] = data.board.split(" ").map(elem => +elem)
+				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
+				console.log("newBoard", newboard)
 				setBoard(newboard)
 			})
+			.catch(e => console.log("fetch error : ", e))
+	}
+
+	function solve() {
+		if (isEqual(board, flatWinGrid)) {
+			setText("Grid already solved ! (Duh...)")
+			return
+		}
+
+		setText("Waiting solver response...")
+		axios
+			.post("http://localhost:8081/solve", {
+				size: 4,
+				board: board.map(e => e.toString()).join(" ")
+			})
+			.then(async ({ data }: { data: { status: string, solution: string } }) => {
+				console.log(data)
+				if (data.status == "OK" || data.status == "DB") {
+					setText(`Found a solution of ${data.solution.length} move(s) !`)
+					let newBoard = board
+					for (let i = 0; i < data.solution.length; i++) {
+						if (data.solution[i] == 'U')
+							newBoard = moveUp(newBoard)
+						if (data.solution[i] == 'D')
+							newBoard = moveDown(newBoard)
+						if (data.solution[i] == 'L')
+							newBoard = moveLeft(newBoard)
+						if (data.solution[i] == 'R')
+							newBoard = moveRight(newBoard)
+						setBoard(newBoard)
+						await new Promise(r => setTimeout(r, 100))
+					}
+				}
+			})
+			.catch(e => console.log("solver error : ", e))
+	}
+
+	function addKeyboardHooks(e: KeyboardEvent) {
+		e.preventDefault()
+		if (e.key === "w" || e.key === "ArrowUp") {
+			setBoard(moveUp(board))
+			setText("Up")
+		}
+		if (e.key === "s" || e.key === "ArrowDown") {
+			setBoard(moveDown(board))
+			setText("Down")
+
+		}
+		if (e.key === "a" || e.key === "ArrowLeft") {
+			setBoard(moveLeft(board))
+			setText("Left")
+		}
+		if (e.key === "d" || e.key === "ArrowRight") {
+			setBoard(moveRight(board))
+			setText("Right")
+		}
 	}
 
 	useEffect(() => {
 		fetchBoard()
 	}, [])
+
+	useEffect(() => {
+		window.addEventListener("keydown", addKeyboardHooks)
+		return (() => {
+			window.removeEventListener("keydown", addKeyboardHooks)
+		})
+	}, [board])
+
+	useEffect(() => {
+		if (isEqual(board, flatWinGrid))
+			setText(`WIN !`)
+	}, [board])
+
 	for (let i = 0; i < 4; i++) {
 		rows.push(
 			<Row key={i} index={i} input={board.slice(4 * i, 4 * (i + 1))}></Row>
@@ -63,7 +225,13 @@ function Board({ input }: { input: number[] }) {
 			<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 				{rows}
 			</Grid>
-			<Button sx={{ height: 30, borderColor: "black", border: 2 }} onClick={fetchBoard}>Refresh Me</Button>
+			<Box textAlign="center">
+				<Button variant="contained" onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
+				<Button variant="contained" onClick={solve}>Solve</Button>
+			</Box>
+			<Box textAlign="center">
+				<p>{text}</p>
+			</Box>
 		</>
 	)
 }
