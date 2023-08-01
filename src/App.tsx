@@ -2,7 +2,7 @@ import Grid from "@mui/material/Grid";
 import Box from '@mui/material/Box';
 import { SxProps } from "@mui/material/styles";
 import { Button } from "@mui/material";
-import {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 
 const commonStyles: SxProps = {
@@ -15,7 +15,7 @@ const commonStyles: SxProps = {
 	backgroundColor: "lightsteelblue"
 }
 
-function Row({index, input }: {index :number, input: number[] }) {
+function Row({ index, input }: { index: number, input: number[] }) {
 	const cells: React.ReactElement[] = []
 	for (let i = 0; i < 4; i++) {
 		cells.push(
@@ -33,23 +33,29 @@ function Row({index, input }: {index :number, input: number[] }) {
 	)
 }
 
-function Board({ input }: { input: number[][] }) {
-	const [fetchInfo, setFetchInfo] = useState<boolean>(false)
-	let gofetch = false
+
+function Board({ input }: { input: number[] }) {
+	const [board, setBoard] = useState<number[]>(input)
 	const rows: React.ReactElement[] = []
 
-	useEffect(()=>{
+	function fetchBoard() {
 		axios
-		.get("http://localhost:8081/generate/4", {headers : {
-			}})
-		.then(({data}) => {
-			console.log(data)
-			setFetchInfo(!fetchInfo)
+			.get("http://localhost:8081/generate/4", {
+				headers: {
+				}
 			})
-		}, [gofetch])
+			.then(({ data }: { data: { size: number, board: string } }) => {
+				const newboard: number[] = data.board.split(" ").map(elem => +elem)
+				setBoard(newboard)
+			})
+	}
+
+	useEffect(() => {
+		fetchBoard()
+	}, [])
 	for (let i = 0; i < 4; i++) {
 		rows.push(
-			<Row key={i} index={i} input={input[i]}></Row>
+			<Row key={i} index={i} input={board.slice(4 * i, 4 * (i + 1))}></Row>
 		)
 	}
 	return (
@@ -57,22 +63,15 @@ function Board({ input }: { input: number[][] }) {
 			<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 				{rows}
 			</Grid>
-			<Button onClick={()=>{gofetch = !gofetch}}></Button>
+			<Button sx={{ height: 30, borderColor: "black", border: 2 }} onClick={fetchBoard}>Refresh Me</Button>
 		</>
 	)
 }
 
 function App() {
-	const input: number[][] = [
-		[1, 2, 3, 4],
-		[5, 6, 7, 8],
-		[9, 10, 11, 12],
-		[13, 14, 15, 0],
-	]
+	const input: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 	return (
-		<>
-			<Board input={input}></Board>
-		</>
+		<Board input={input}></Board>
 	)
 }
 
