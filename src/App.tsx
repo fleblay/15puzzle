@@ -131,6 +131,10 @@ function Board({ input }: { input: number[] }) {
 	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
 	const rows: React.ReactElement[] = []
+
+	useEffect(() => {
+	}, [disabled])
+
 	const handlers = useSwipeable({
 		onSwipedUp: () => {
 			setBoard(moveUp(board))
@@ -152,11 +156,13 @@ function Board({ input }: { input: number[] }) {
 	});
 
 	function fetchBoard() {
+		setText("Waiting server generating grid... ")
 		axios
 			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
 			.then(({ data }: { data: { size: number, board: string } }) => {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
+				setText("Successfully fetched a randomly generated grid !")
 			})
 			.catch(e => {
 				console.log("fetch error : ", e)
@@ -211,8 +217,10 @@ function Board({ input }: { input: number[] }) {
 			})
 	}
 
-	function addKeyboardHooks(e: KeyboardEvent) {
+	function addKeyboardHooks(e: KeyboardEvent, ) {
 		e.preventDefault()
+		if (disabled)
+			return
 		if (e.key === "w" || e.key === "ArrowUp") {
 			setBoard(moveUp(board))
 			setText("Up")
@@ -240,7 +248,7 @@ function Board({ input }: { input: number[] }) {
 		return (() => {
 			window.removeEventListener("keydown", addKeyboardHooks)
 		})
-	}, [board])
+	}, [board, disabled])
 
 	useEffect(() => {
 		if (isEqual(board, flatWinGrid))
@@ -259,7 +267,7 @@ function Board({ input }: { input: number[] }) {
 					{rows}
 				</Grid>
 				<Box textAlign="center">
-					<Button variant="contained" disabled={disabled} onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
+					<Button variant="contained" disabled={disabled} onClick={fetchBoard}>New Grid</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("default")}>Solve</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar")}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida")}>Solve with IDA</Button>
