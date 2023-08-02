@@ -4,6 +4,7 @@ import { SxProps } from "@mui/material/styles";
 import { Button } from "@mui/material";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useSwipeable } from "react-swipeable";
 
 const commonStyles: SxProps = {
 	border: 2,
@@ -20,12 +21,9 @@ type Pos2D = {
 	Y: number,
 }
 
-var winGrid: number[][] = [
-	[1, 2, 3, 4],
-	[12, 13, 14, 5],
-	[11, 0, 15, 6],
-	[10, 9, 8, 7],
-]
+var swipeConfig = {
+	preventScrollOnSwipe: true,
+}
 
 var flatWinGrid: number[] = [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7]
 
@@ -132,16 +130,37 @@ function Board({ input }: { input: number[] }) {
 	const [board, setBoard] = useState<number[]>(input)
 	const [text, setText] = useState<string>("")
 	const rows: React.ReactElement[] = []
+	const handlers = useSwipeable({
+		onSwipedUp: () => {
+			setBoard(moveUp(board))
+			setText("Up")
+		},
+		onSwipedDown: () => {
+			setBoard(moveDown(board))
+			setText("Down")
+		},
+		onSwipedLeft: () => {
+			setBoard(moveLeft(board))
+			setText("Left")
+		},
+		onSwipedRight: () => {
+			setBoard(moveRight(board))
+			setText("Right")
+		},
+		...swipeConfig
+	});
 
 	function fetchBoard() {
 		axios
-			.get("http://localhost:8081/generate/4")
+			.get(`http://${location.hostname}:8081/generate/4`)
 			.then(({ data }: { data: { size: number, board: string } }) => {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
-				console.log("newBoard", newboard)
 				setBoard(newboard)
 			})
-			.catch(e => console.log("fetch error : ", e))
+			.catch(e => {
+				console.log("fetch error : ", e)
+				setText("Something went wrong fetching a random board. Hit the button again !")
+			})
 	}
 
 	function solve() {
@@ -152,14 +171,16 @@ function Board({ input }: { input: number[] }) {
 
 		setText("Waiting solver response...")
 		axios
-			.post("http://localhost:8081/solve", {
+			.post(`http://${location.hostname}:8081/solve`, {
 				size: 4,
 				board: board.map(e => e.toString()).join(" ")
 			})
-			.then(async ({ data }: { data: { status: string, solution: string } }) => {
-				console.log(data)
+			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
-					setText(`Found a solution of ${data.solution.length} move(s) !`)
+					if (data.status == "OK")
+						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA*" ? data.workers : "1"} threads!`)
+					if (data.status == "DB")
+						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D)`)
 					let newBoard = board
 					for (let i = 0; i < data.solution.length; i++) {
 						if (data.solution[i] == 'U')
@@ -175,7 +196,10 @@ function Board({ input }: { input: number[] }) {
 					}
 				}
 			})
-			.catch(e => console.log("solver error : ", e))
+			.catch(e => {
+				console.log("solver error : ", e)
+				setText("Something went wrong solving the board. Hit the button again !")
+			})
 	}
 
 	function addKeyboardHooks(e: KeyboardEvent) {
@@ -187,7 +211,6 @@ function Board({ input }: { input: number[] }) {
 		if (e.key === "s" || e.key === "ArrowDown") {
 			setBoard(moveDown(board))
 			setText("Down")
-
 		}
 		if (e.key === "a" || e.key === "ArrowLeft") {
 			setBoard(moveLeft(board))
@@ -212,7 +235,7 @@ function Board({ input }: { input: number[] }) {
 
 	useEffect(() => {
 		if (isEqual(board, flatWinGrid))
-			setText(`WIN !`)
+			setText(`${text} and... WIN !`)
 	}, [board])
 
 	for (let i = 0; i < 4; i++) {
@@ -222,15 +245,17 @@ function Board({ input }: { input: number[] }) {
 	}
 	return (
 		<>
-			<Grid sx={{ margin: "auto", maxWidth: 800 }}>
-				{rows}
-			</Grid>
-			<Box textAlign="center">
-				<Button variant="contained" onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
-				<Button variant="contained" onClick={solve}>Solve</Button>
-			</Box>
-			<Box textAlign="center">
-				<p>{text}</p>
+			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
+				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
+					{rows}
+				</Grid>
+				<Box textAlign="center">
+					<Button variant="contained" onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
+					<Button variant="contained" onClick={solve}>Solve</Button>
+				</Box>
+				<Box textAlign="center">
+					<p>{text}</p>
+				</Box>
 			</Box>
 		</>
 	)
