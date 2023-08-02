@@ -152,7 +152,7 @@ function Board({ input }: { input: number[] }) {
 
 	function fetchBoard() {
 		axios
-			.get(`http://${location.hostname}:8081/generate/4`)
+			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
 			.then(({ data }: { data: { size: number, board: string } }) => {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
@@ -171,7 +171,7 @@ function Board({ input }: { input: number[] }) {
 
 		setText("Waiting solver response...")
 		axios
-			.post(`http://${location.hostname}:8081/solve`, {
+			.post(`https://${location.hostname}/15puzzle/api/solve`, {
 				size: 4,
 				board: board.map(e => e.toString()).join(" ")
 			})
