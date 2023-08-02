@@ -128,6 +128,7 @@ function Row({ index, input }: { index: number, input: number[] }) {
 
 function Board({ input }: { input: number[] }) {
 	const [board, setBoard] = useState<number[]>(input)
+	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
 	const rows: React.ReactElement[] = []
 	const handlers = useSwipeable({
@@ -163,22 +164,25 @@ function Board({ input }: { input: number[] }) {
 			})
 	}
 
-	function solve() {
+	function solve(algo: string) {
 		if (isEqual(board, flatWinGrid)) {
 			setText("Grid already solved ! (Duh...)")
 			return
 		}
-
 		setText("Waiting solver response...")
+		setDisabled(true)
 		axios
-			.post(`https://${location.hostname}/15puzzle/api/solve`, {
+			.post(`https://${location.hostname}/15puzzle/api/solve/${algo}`, {
 				size: 4,
 				board: board.map(e => e.toString()).join(" ")
-			})
+			},
+				{
+					timeout: 3600 * 1000
+				})
 			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
 					if (data.status == "OK")
-						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA*" ? data.workers : "1"} threads!`)
+						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
 						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D)`)
 					let newBoard = board
@@ -194,11 +198,16 @@ function Board({ input }: { input: number[] }) {
 						setBoard(newBoard)
 						await new Promise(r => setTimeout(r, 100))
 					}
+				} else if (data.status == "RAM" && data.algo == "A*") {
+					setText(`Filled up server RAM in ${data.time}. You should try again with IDA, but beware, it may take some time...`)
 				}
 			})
 			.catch(e => {
 				console.log("solver error : ", e)
 				setText("Something went wrong solving the board. Hit the button again !")
+			})
+			.finally(()=>{
+				setDisabled(false)
 			})
 	}
 
@@ -250,8 +259,10 @@ function Board({ input }: { input: number[] }) {
 					{rows}
 				</Grid>
 				<Box textAlign="center">
-					<Button variant="contained" onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
-					<Button variant="contained" onClick={solve}>Solve</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { fetchBoard(); setText("Successfully fetched a randomly generated grid !") }}>New Grid</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("default")}>Solve</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("astar")}>Solve with A*</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("ida")}>Solve with IDA</Button>
 				</Box>
 				<Box textAlign="center">
 					<p>{text}</p>
