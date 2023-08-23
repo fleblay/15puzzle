@@ -176,7 +176,7 @@ function Board({ input }: { input: number[] }) {
 			return
 		}
 		setText("Waiting solver response...")
-		setDisabled(true)
+		//setDisabled(true)
 		axios
 			.post(`https://${location.hostname}/15puzzle/api/solve/${algo}`, {
 				size: 4,
@@ -206,6 +206,8 @@ function Board({ input }: { input: number[] }) {
 					}
 				} else if (data.status == "RAM" && data.algo == "A*") {
 					setText(`Filled up server RAM in ${data.time}. You should try again with IDA, but beware, it may take some time...`)
+				} else if (data.status == "RUNNING") {
+					setText(`This grid is already being solved by the server. Wait a bit please !`)
 				}
 			})
 			.catch(e => {
