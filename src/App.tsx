@@ -1,7 +1,7 @@
 import Grid from "@mui/material/Grid";
 import Box from '@mui/material/Box';
 import { SxProps } from "@mui/material/styles";
-import { Button } from "@mui/material";
+import { Button, Checkbox, FormControlLabel, FormGroup } from "@mui/material";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useSwipeable } from "react-swipeable";
@@ -107,13 +107,22 @@ function moveRight(board: number[]): number[] {
 	return flattenArray(expandedArray)
 }
 
-function Row({ index, input }: { index: number, input: number[] }) {
+function handleCellClick(row: number, column: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>) {
+	console.log(`clicked [${row}][${column}] : ${input[row * 4 + column]}`)
+	console.log(input)
+	input[row * 4 + column] = row * 4 + column
+	console.log(input)
+	updateBoard([...input])
+}
+
+function Row({ index, input, updateBoard }: { index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
 	const cells: React.ReactElement[] = []
+
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }}>
-					{input[i] != 0 ? input[i] : ""}
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={() => handleCellClick(index, i, input, updateBoard)}>
+					{input[4 * index + i] != 0 ? input[4 * index + i] : ""}
 				</Box>
 			</Grid>
 		)
@@ -128,9 +137,12 @@ function Row({ index, input }: { index: number, input: number[] }) {
 
 function Board({ input }: { input: number[] }) {
 	const [board, setBoard] = useState<number[]>(input)
+	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
+	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+	const [custom, setCustom] = useState<boolean>(false)
 	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
-	const rows: React.ReactElement[] = []
+	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
 
 	useEffect(() => {
 	}, [disabled])
@@ -162,6 +174,7 @@ function Board({ input }: { input: number[] }) {
 			.then(({ data }: { data: { size: number, board: string } }) => {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
+				setPreviousBoard(newboard)
 				setText("Successfully fetched a randomly generated grid !")
 			})
 			.catch(e => {
@@ -170,17 +183,18 @@ function Board({ input }: { input: number[] }) {
 			})
 	}
 
-	function solve(algo: string) {
+	function solve(algo: string, previousCompute: boolean) {
 		if (isEqual(board, flatWinGrid)) {
 			setText("Grid already solved ! (Duh...)")
 			return
 		}
 		setText("Waiting solver response...")
-		//setDisabled(true)
+		setDisabled(true)
 		axios
 			.post(`https://${location.hostname}/15puzzle/api/solve/${algo}`, {
 				size: 4,
-				board: board.map(e => e.toString()).join(" ")
+				board: board.map(e => e.toString()).join(" "),
+				previousCompute
 			},
 				{
 					timeout: 3600 * 1000
@@ -214,12 +228,12 @@ function Board({ input }: { input: number[] }) {
 				console.log("solver error : ", e)
 				setText("Something went wrong solving the board. Hit the button again !")
 			})
-			.finally(()=>{
+			.finally(() => {
 				setDisabled(false)
 			})
 	}
 
-	function addKeyboardHooks(e: KeyboardEvent, ) {
+	function addKeyboardHooks(e: KeyboardEvent,) {
 		e.preventDefault()
 		if (disabled)
 			return
@@ -257,22 +271,29 @@ function Board({ input }: { input: number[] }) {
 			setText(`${text} and... WIN !`)
 	}, [board])
 
-	for (let i = 0; i < 4; i++) {
-		rows.push(
-			<Row key={i} index={i} input={board.slice(4 * i, 4 * (i + 1))}></Row>
-		)
+	function handlePrevious(event: React.BaseSyntheticEvent) {
+		setAllowPreviousCompute(event.target.checked)
 	}
+
 	return (
 		<>
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
 				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
-					{rows}
+					{
+						[...Array(4)].map((_, i) => <Row key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
+					}
 				</Grid>
 				<Box textAlign="center">
-					<Button variant="contained" disabled={disabled} onClick={fetchBoard}>New Grid</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => solve("default")}>Solve</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => solve("astar")}>Solve with A*</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => solve("ida")}>Solve with IDA</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(false); fetchBoard() }}>New Grid</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("default", allowPreviousCompute)}>Solve</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => setBoard(previousBoard)}>Reset Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => setCustom(true)}>Custom Board</Button>
+				</Box>
+				<Box>
+					<FormGroup aria-invalid> <FormControlLabel control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+					</FormGroup>
 				</Box>
 				<Box textAlign="center">
 					<p>{text}</p>
