@@ -1,10 +1,15 @@
 import Grid from "@mui/material/Grid";
 import Box from '@mui/material/Box';
 import { SxProps } from "@mui/material/styles";
-import { Button, Checkbox, FormControlLabel, FormGroup } from "@mui/material";
+import { Button, Checkbox, FormControlLabel, FormGroup, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useSwipeable } from "react-swipeable";
+
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 
 const commonStyles: SxProps = {
 	border: 2,
@@ -107,22 +112,24 @@ function moveRight(board: number[]): number[] {
 	return flattenArray(expandedArray)
 }
 
-function handleCellClick(row: number, column: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>>) {
-	if (clickCount < 15 && input[row * 4 + column] == 0) {
+function handleCellClick(custom : boolean, row: number, column: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>>) {
+	if (custom && clickCount < 15 && input[row * 4 + column] == 0) {
 		input[row * 4 + column] = clickCount + 1
 		updateBoard([...input])
 		updateClick(clickCount + 1)
 	}
 }
 
-function Row({ index, input, clickCount, updateBoard, updateClick }: { index: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>> }) {
+function Row({ custom, index, input, clickCount, updateBoard, updateClick }: { custom: boolean, index: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={() => handleCellClick(index, i, input, clickCount, updateBoard, updateClick)}>
-					{input[4 * index + i] != 0 ? input[4 * index + i] : ""}
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => {e.preventDefault(); handleCellClick(custom, index, i, input, clickCount, updateBoard, updateClick)}}>
+					<Typography variant="h1">
+						{input[4 * index + i] != 0 ? input[4 * index + i] : " "}
+					</Typography>
 				</Box>
 			</Grid>
 		)
@@ -207,7 +214,7 @@ function Board({ input }: { input: number[] }) {
 					if (data.status == "OK")
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
-						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D)`)
+						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D). First compute was with ${data.algo} in ${data.time}`)
 					let newBoard = currentBoard
 					for (let i = 0; i < data.solution.length; i++) {
 						if (data.solution[i] == 'U')
@@ -292,7 +299,7 @@ function Board({ input }: { input: number[] }) {
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
 				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 					{
-						[...Array(4)].map((_, i) => <Row key={i} index={i} input={custom ? customBoard : board} clickCount={clickCount} updateBoard={setCustomBoard} updateClick={setClickCount}></Row>)
+						[...Array(4)].map((_, i) => <Row custom={custom} key={i} index={i} input={custom ? customBoard : board} clickCount={clickCount} updateBoard={setCustomBoard} updateClick={setClickCount}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
@@ -310,7 +317,7 @@ function Board({ input }: { input: number[] }) {
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
-					<p>{text}</p>
+					<Typography>{text}</Typography>
 				</Box>
 			</Box>
 		</>
