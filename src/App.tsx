@@ -108,8 +108,7 @@ function moveRight(board: number[]): number[] {
 }
 
 function handleCellClick(row: number, column: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>>) {
-	console.log(`clicked [${row}][${column}] : ${input[row * 4 + column]}`)
-	if (clickCount < 15) {
+	if (clickCount < 15 && input[row * 4 + column] == 0) {
 		input[row * 4 + column] = clickCount + 1
 		updateBoard([...input])
 		updateClick(clickCount + 1)
@@ -170,24 +169,20 @@ function Board({ input }: { input: number[] }) {
 	});
 
 	function fetchBoard() {
-		if (custom)
-			setCustom(false)
-		else {
 
-			setText("Waiting server generating grid... ")
-			axios
-				.get(`https://${location.hostname}/15puzzle/api/generate/4`)
-				.then(({ data }: { data: { size: number, board: string } }) => {
-					const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
-					setBoard(newboard)
-					setPreviousBoard(newboard)
-					setText("Successfully fetched a randomly generated grid !")
-				})
-				.catch(e => {
-					console.log("fetch error : ", e)
-					setText("Something went wrong fetching a random board. Hit the button again !")
-				})
-		}
+		setText("Waiting server generating grid... ")
+		axios
+			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
+			.then(({ data }: { data: { size: number, board: string } }) => {
+				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
+				setBoard(newboard)
+				setPreviousBoard(newboard)
+				setText("Successfully fetched a randomly generated grid !")
+			})
+			.catch(e => {
+				console.log("fetch error : ", e)
+				setText("Something went wrong fetching a random board. Hit the button again !")
+			})
 	}
 
 	function solve(algo: string, previousCompute: boolean) {
@@ -223,13 +218,22 @@ function Board({ input }: { input: number[] }) {
 							newBoard = moveLeft(newBoard)
 						if (data.solution[i] == 'R')
 							newBoard = moveRight(newBoard)
-						setBoard(newBoard)
+						if (!custom)
+							setBoard(newBoard)
+						else
+							setCustomBoard(newBoard)
 						await new Promise(r => setTimeout(r, 100))
 					}
-				} else if (data.status == "RAM" && data.algo == "A*") {
+				} else if (data.status == "RAM") {
 					setText(`Filled up server RAM in ${data.time}. You should try again with IDA, but beware, it may take some time...`)
 				} else if (data.status == "RUNNING") {
 					setText(`This grid is already being solved by the server. Wait a bit please !`)
+				} else if (data.status == "BUSY") {
+					setText(`Server is already processing a grid with A*. Please wait or use IDA`)
+				} else if (data.status == "PARAM") {
+					setText(`Something is wrong regarding the board : ${data.solution}`)
+				} else if (data.status == "FLAGS") {
+					setText(`Backend solver was not initialized properly : ${data.solution}`)
 				}
 			})
 			.catch(e => {
@@ -292,12 +296,14 @@ function Board({ input }: { input: number[] }) {
 					}
 				</Grid>
 				<Box textAlign="center">
-					<Button variant="contained" disabled={disabled} onClick={fetchBoard}>New Grid</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { if (custom) { setCustom(false) } else { fetchBoard() } }}>New Grid</Button>
+					{/*
 					<Button variant="contained" disabled={disabled} onClick={() => solve("default", allowPreviousCompute)}>Solve</Button>
+					*/}
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => setBoard(previousBoard)}>Reset Board</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => {setCustom(true); setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); setClickCount(0)}}>Custom Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else { setClickCount(0); setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(!custom) }}>Switch to {custom ? "Random" : "Custom"} Mode</Button>
 				</Box>
 				<Box>
 					<FormGroup aria-invalid> <FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
