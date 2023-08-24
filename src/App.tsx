@@ -112,23 +112,27 @@ function moveRight(board: number[]): number[] {
 	return flattenArray(expandedArray)
 }
 
-function handleCellClick(custom : boolean, row: number, column: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>>) {
-	if (custom && clickCount < 15 && input[row * 4 + column] == 0) {
-		input[row * 4 + column] = clickCount + 1
+function handleCellClick(custom: boolean, row: number, column: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>) {
+	let biggest: number = 0
+	input.forEach(e => { biggest = (biggest < e && e != 0) ? e : biggest })
+	if (custom) {
+		if (input[row * 4 + column] == 0 && biggest < 15)
+			input[row * 4 + column] = biggest + 1
+		else if (input[row * 4 + column] == biggest)
+			input[row * 4 + column] = 0
 		updateBoard([...input])
-		updateClick(clickCount + 1)
 	}
 }
 
-function Row({ custom, index, input, clickCount, updateBoard, updateClick }: { custom: boolean, index: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>> }) {
+function Row({ custom, index, input, updateBoard}: { custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>}) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => {e.preventDefault(); handleCellClick(custom, index, i, input, clickCount, updateBoard, updateClick)}}>
-					<Typography variant="h1">
-						{input[4 * index + i] != 0 ? input[4 * index + i] : " "}
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
+					<Typography variant="h2" sx={{ opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
+						{input[4 * index + i]}
 					</Typography>
 				</Box>
 			</Grid>
@@ -147,7 +151,6 @@ function Board({ input }: { input: number[] }) {
 	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
 	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [custom, setCustom] = useState<boolean>(false)
-	const [clickCount, setClickCount] = useState<number>(0)
 	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
@@ -177,7 +180,7 @@ function Board({ input }: { input: number[] }) {
 
 	function fetchBoard() {
 
-		setText("Waiting server generating grid... ")
+		setText("Waiting for the server to generate a grid... ")
 		axios
 			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
 			.then(({ data }: { data: { size: number, board: string } }) => {
@@ -188,7 +191,7 @@ function Board({ input }: { input: number[] }) {
 			})
 			.catch(e => {
 				console.log("fetch error : ", e)
-				setText("Something went wrong fetching a random board. Hit the button again !")
+				setText("Something went wrong fetching a random grid")
 			})
 	}
 
@@ -204,13 +207,15 @@ function Board({ input }: { input: number[] }) {
 			.post(`https://${location.hostname}/15puzzle/api/solve/${algo}`, {
 				size: 4,
 				board: currentBoard.map(e => e.toString()).join(" "),
-				previousCompute
+				previousCompute,
+				disposition : "toto"
 			},
 				{
 					timeout: 3600 * 1000
 				})
 			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
+					console.log("Here is the solution you smarty-pants ;P : ", data.solution)
 					if (data.status == "OK")
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
@@ -245,7 +250,7 @@ function Board({ input }: { input: number[] }) {
 			})
 			.catch(e => {
 				console.log("solver error : ", e)
-				setText("Something went wrong solving the board. Hit the button again !")
+				setText("Something went wrong solving the board. Try again !")
 			})
 			.finally(() => {
 				setDisabled(false)
@@ -299,7 +304,7 @@ function Board({ input }: { input: number[] }) {
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
 				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 					{
-						[...Array(4)].map((_, i) => <Row custom={custom} key={i} index={i} input={custom ? customBoard : board} clickCount={clickCount} updateBoard={setCustomBoard} updateClick={setClickCount}></Row>)
+						[...Array(4)].map((_, i) => <Row custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
@@ -309,7 +314,7 @@ function Board({ input }: { input: number[] }) {
 					*/}
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else { setClickCount(0); setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else {setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(!custom) }}>Switch to {custom ? "Random" : "Custom"} Mode</Button>
 				</Box>
 				<Box>
