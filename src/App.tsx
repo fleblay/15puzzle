@@ -107,21 +107,22 @@ function moveRight(board: number[]): number[] {
 	return flattenArray(expandedArray)
 }
 
-function handleCellClick(row: number, column: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>) {
+function handleCellClick(row: number, column: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>>) {
 	console.log(`clicked [${row}][${column}] : ${input[row * 4 + column]}`)
-	console.log(input)
-	input[row * 4 + column] = row * 4 + column
-	console.log(input)
-	updateBoard([...input])
+	if (clickCount < 15) {
+		input[row * 4 + column] = clickCount + 1
+		updateBoard([...input])
+		updateClick(clickCount + 1)
+	}
 }
 
-function Row({ index, input, updateBoard }: { index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
+function Row({ index, input, clickCount, updateBoard, updateClick }: { index: number, input: number[], clickCount: number, updateBoard: React.Dispatch<React.SetStateAction<number[]>>, updateClick: React.Dispatch<React.SetStateAction<number>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={() => handleCellClick(index, i, input, updateBoard)}>
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={() => handleCellClick(index, i, input, clickCount, updateBoard, updateClick)}>
 					{input[4 * index + i] != 0 ? input[4 * index + i] : ""}
 				</Box>
 			</Grid>
@@ -140,6 +141,7 @@ function Board({ input }: { input: number[] }) {
 	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
 	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [custom, setCustom] = useState<boolean>(false)
+	const [clickCount, setClickCount] = useState<number>(0)
 	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
@@ -168,23 +170,29 @@ function Board({ input }: { input: number[] }) {
 	});
 
 	function fetchBoard() {
-		setText("Waiting server generating grid... ")
-		axios
-			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
-			.then(({ data }: { data: { size: number, board: string } }) => {
-				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
-				setBoard(newboard)
-				setPreviousBoard(newboard)
-				setText("Successfully fetched a randomly generated grid !")
-			})
-			.catch(e => {
-				console.log("fetch error : ", e)
-				setText("Something went wrong fetching a random board. Hit the button again !")
-			})
+		if (custom)
+			setCustom(false)
+		else {
+
+			setText("Waiting server generating grid... ")
+			axios
+				.get(`https://${location.hostname}/15puzzle/api/generate/4`)
+				.then(({ data }: { data: { size: number, board: string } }) => {
+					const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
+					setBoard(newboard)
+					setPreviousBoard(newboard)
+					setText("Successfully fetched a randomly generated grid !")
+				})
+				.catch(e => {
+					console.log("fetch error : ", e)
+					setText("Something went wrong fetching a random board. Hit the button again !")
+				})
+		}
 	}
 
 	function solve(algo: string, previousCompute: boolean) {
-		if (isEqual(board, flatWinGrid)) {
+		const currentBoard = custom ? customBoard : board
+		if (isEqual(currentBoard, flatWinGrid)) {
 			setText("Grid already solved ! (Duh...)")
 			return
 		}
@@ -193,7 +201,7 @@ function Board({ input }: { input: number[] }) {
 		axios
 			.post(`https://${location.hostname}/15puzzle/api/solve/${algo}`, {
 				size: 4,
-				board: board.map(e => e.toString()).join(" "),
+				board: currentBoard.map(e => e.toString()).join(" "),
 				previousCompute
 			},
 				{
@@ -205,7 +213,7 @@ function Board({ input }: { input: number[] }) {
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
 						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D)`)
-					let newBoard = board
+					let newBoard = currentBoard
 					for (let i = 0; i < data.solution.length; i++) {
 						if (data.solution[i] == 'U')
 							newBoard = moveUp(newBoard)
@@ -280,19 +288,19 @@ function Board({ input }: { input: number[] }) {
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
 				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 					{
-						[...Array(4)].map((_, i) => <Row key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
+						[...Array(4)].map((_, i) => <Row key={i} index={i} input={custom ? customBoard : board} clickCount={clickCount} updateBoard={setCustomBoard} updateClick={setClickCount}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
-					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(false); fetchBoard() }}>New Grid</Button>
+					<Button variant="contained" disabled={disabled} onClick={fetchBoard}>New Grid</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("default", allowPreviousCompute)}>Solve</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => setBoard(previousBoard)}>Reset Board</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => setCustom(true)}>Custom Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => {setCustom(true); setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); setClickCount(0)}}>Custom Board</Button>
 				</Box>
 				<Box>
-					<FormGroup aria-invalid> <FormControlLabel control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+					<FormGroup aria-invalid> <FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
