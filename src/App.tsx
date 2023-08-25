@@ -30,7 +30,8 @@ var swipeConfig = {
 	preventScrollOnSwipe: true,
 }
 
-var flatWinGrid: number[] = [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7]
+var flatSnailWinGrid: number[] = [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7]
+var flatRegularWinGrid: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
 
 function isEqual(a: number[], b: number[]): boolean {
 	if (a.length != b.length)
@@ -70,6 +71,23 @@ function flattenArray(board: number[][]): number[] {
 		}
 	}
 	return flattenedArray
+}
+
+function revertSolution(solution: string): string {
+	return solution.split("").map((move: string) => {
+		switch (move) {
+			case "U":
+				return "D"
+			case "D":
+				return "U"
+			case "L":
+				return "R"
+			case "R":
+				return "L"
+			default:
+				return "?"
+		}
+	}).join("")
 }
 
 function moveUp(board: number[]): number[] {
@@ -124,7 +142,7 @@ function handleCellClick(custom: boolean, row: number, column: number, input: nu
 	}
 }
 
-function Row({ custom, index, input, updateBoard}: { custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>}) {
+function Row({ custom, index, input, updateBoard }: { custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
@@ -153,7 +171,10 @@ function Board({ input }: { input: number[] }) {
 	const [custom, setCustom] = useState<boolean>(false)
 	const [disabled, setDisabled] = useState<boolean>(false)
 	const [text, setText] = useState<string>("")
+	const [solution, setSolution] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
+	const [revertMoves, setRevertMoves] = useState<boolean>(true)
+	const [snailDisposition, setSnailDisposition] = useState<boolean>(false)
 
 	useEffect(() => {
 	}, [disabled])
@@ -179,10 +200,11 @@ function Board({ input }: { input: number[] }) {
 	});
 
 	function fetchBoard() {
-
+		const disposition = snailDisposition ? "snail" : "zerolast"
+		setSolution("")
 		setText("Waiting for the server to generate a grid... ")
 		axios
-			.get(`https://${location.hostname}/15puzzle/api/generate/4`)
+			.get(`https://${location.hostname}/15puzzle/api/generate/4/${disposition}`)
 			.then(({ data }: { data: { size: number, board: string } }) => {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
@@ -197,10 +219,12 @@ function Board({ input }: { input: number[] }) {
 
 	function solve(algo: string, previousCompute: boolean) {
 		const currentBoard = custom ? customBoard : board
+		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
 		if (isEqual(currentBoard, flatWinGrid)) {
 			setText("Grid already solved ! (Duh...)")
 			return
 		}
+		setSolution("")
 		setText("Waiting solver response...")
 		setDisabled(true)
 		axios
@@ -208,7 +232,7 @@ function Board({ input }: { input: number[] }) {
 				size: 4,
 				board: currentBoard.map(e => e.toString()).join(" "),
 				previousCompute,
-				disposition : "toto"
+				disposition: snailDisposition ? "snail" : "zerolast"
 			},
 				{
 					timeout: 3600 * 1000
@@ -216,6 +240,11 @@ function Board({ input }: { input: number[] }) {
 			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
 					console.log("Here is the solution you smarty-pants ;P : ", data.solution)
+					if (!revertMoves) {
+						setSolution(data.solution)
+					} else {
+						setSolution(revertSolution(data.solution))
+					}
 					if (data.status == "OK")
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
@@ -291,12 +320,18 @@ function Board({ input }: { input: number[] }) {
 	}, [board, disabled])
 
 	useEffect(() => {
+		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
 		if (isEqual(board, flatWinGrid))
 			setText(`${text} and... WIN !`)
-	}, [board])
+	}, [board, snailDisposition])
 
 	function handlePrevious(event: React.BaseSyntheticEvent) {
 		setAllowPreviousCompute(event.target.checked)
+	}
+
+	function handleRevert(event: React.BaseSyntheticEvent) {
+		setRevertMoves(event.target.checked)
+		setSolution(revertSolution(solution))
 	}
 
 	return (
@@ -314,15 +349,19 @@ function Board({ input }: { input: number[] }) {
 					*/}
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else {setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else { setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(!custom) }}>Switch to {custom ? "Random" : "Custom"} Mode</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { setSnailDisposition(!snailDisposition) }}>Switch to {snailDisposition ? "Standard" : "Snail"} Disposition</Button>
 				</Box>
 				<Box>
-					<FormGroup aria-invalid> <FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+					<FormGroup aria-invalid>
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox />} onChange={handleRevert} label="Revert Moves" />
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
 					<Typography>{text}</Typography>
+					<Typography>{solution}</Typography>
 				</Box>
 			</Box>
 		</>
