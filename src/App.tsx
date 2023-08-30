@@ -154,14 +154,14 @@ function handleCellClick(custom: boolean, row: number, column: number, input: nu
 	}
 }
 
-function Row({ custom, index, input, updateBoard }: { custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
+function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
 				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
-					<Typography sx={{ fontSize: "8vw", opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
+					<Typography sx={{ color: win ? "green" : "black", fontSize: "8vw", opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
 						{input[4 * index + i]}
 					</Typography>
 				</Box>
@@ -187,6 +187,7 @@ function Board({ input }: { input: number[] }) {
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
 	const [revertMoves, setRevertMoves] = useState<boolean>(false)
 	const [snailDisposition, setSnailDisposition] = useState<boolean>(false)
+	const [win, setWin] = useState<boolean>(false)
 
 	const handlers = swipeableSelector(revertMoves)
 
@@ -246,8 +247,7 @@ function Board({ input }: { input: number[] }) {
 
 	function solve(algo: string, previousCompute: boolean) {
 		const currentBoard = custom ? customBoard : board
-		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
-		if (isEqual(currentBoard, flatWinGrid)) {
+		if (win) {
 			setText("Grid already solved ! (Duh...)")
 			return
 		}
@@ -370,7 +370,9 @@ function Board({ input }: { input: number[] }) {
 	useEffect(() => {
 		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
 		if (isEqual(board, flatWinGrid))
-			setText(`${text} and... WIN !`)
+			setWin(true)
+		else
+			setWin(false)
 	}, [board, snailDisposition])
 
 	function handlePrevious(event: React.BaseSyntheticEvent) {
@@ -387,7 +389,7 @@ function Board({ input }: { input: number[] }) {
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
 				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
 					{
-						[...Array(4)].map((_, i) => <Row custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
+						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
