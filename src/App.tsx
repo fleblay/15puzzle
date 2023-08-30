@@ -4,7 +4,7 @@ import { SxProps } from "@mui/material/styles";
 import { Button, Checkbox, FormControlLabel, FormGroup, Typography } from "@mui/material";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useSwipeable } from "react-swipeable";
+import { SwipeableHandlers, useSwipeable } from "react-swipeable";
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -16,8 +16,6 @@ const commonStyles: SxProps = {
 	borderRadius: 1,
 	margin: 0.5,
 	aspectRatio: 1.2,
-	fontWeight: 2,
-	fontSize: "3em",
 	backgroundColor: "lightsteelblue"
 }
 
@@ -163,7 +161,7 @@ function Row({ custom, index, input, updateBoard }: { custom: boolean, index: nu
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
 				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
-					<Typography variant="h2" sx={{ opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
+					<Typography sx={{ fontSize: "8vw", opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
 						{input[4 * index + i]}
 					</Typography>
 				</Box>
@@ -187,31 +185,46 @@ function Board({ input }: { input: number[] }) {
 	const [text, setText] = useState<string>("")
 	const [solution, setSolution] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
-	const [revertMoves, setRevertMoves] = useState<boolean>(true)
+	const [revertMoves, setRevertMoves] = useState<boolean>(false)
 	const [snailDisposition, setSnailDisposition] = useState<boolean>(false)
 
-	useEffect(() => {
-	}, [disabled])
+	const handlers = swipeableSelector(revertMoves)
 
-	const handlers = useSwipeable({
-		onSwipedUp: () => {
-			setBoard(moveUp(board))
-			setText("Up")
-		},
-		onSwipedDown: () => {
-			setBoard(moveDown(board))
-			setText("Down")
-		},
-		onSwipedLeft: () => {
-			setBoard(moveLeft(board))
-			setText("Left")
-		},
-		onSwipedRight: () => {
-			setBoard(moveRight(board))
-			setText("Right")
-		},
-		...swipeConfig
-	});
+	function swipeableSelector(revert: boolean): SwipeableHandlers {
+		if (revert) {
+			return useSwipeable({
+				onSwipedUp: () => {
+					setBoard(moveDown(board))
+				},
+				onSwipedDown: () => {
+					setBoard(moveUp(board))
+				},
+				onSwipedLeft: () => {
+					setBoard(moveRight(board))
+				},
+				onSwipedRight: () => {
+					setBoard(moveLeft(board))
+				},
+				...swipeConfig
+			});
+		} else {
+			return useSwipeable({
+				onSwipedUp: () => {
+					setBoard(moveUp(board))
+				},
+				onSwipedDown: () => {
+					setBoard(moveDown(board))
+				},
+				onSwipedLeft: () => {
+					setBoard(moveLeft(board))
+				},
+				onSwipedRight: () => {
+					setBoard(moveRight(board))
+				},
+				...swipeConfig
+			});
+		}
+	}
 
 	function fetchBoard() {
 		const disposition = snailDisposition ? "snail" : "zerolast"
@@ -223,7 +236,7 @@ function Board({ input }: { input: number[] }) {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
 				setPreviousBoard(newboard)
-				setText("Successfully fetched grid !")
+				setText("Successfully fetched a randomly generated grid !")
 			})
 			.catch(e => {
 				console.log("fetch error : ", e)
@@ -300,25 +313,46 @@ function Board({ input }: { input: number[] }) {
 			})
 	}
 
-	function addKeyboardHooks(e: KeyboardEvent,) {
+	function keyBoardHooksSelector(revert: boolean): (e: KeyboardEvent) => void {
+		if (revert)
+			return addRevertedKeyboardHooks
+		else
+			return addKeyboardHooks
+	}
+
+	function addRevertedKeyboardHooks(e: KeyboardEvent) {
+		e.preventDefault()
+		if (disabled)
+			return
+		if (e.key === "w" || e.key === "ArrowUp") {
+			setBoard(moveDown(board))
+		}
+		if (e.key === "s" || e.key === "ArrowDown") {
+			setBoard(moveUp(board))
+		}
+		if (e.key === "a" || e.key === "ArrowLeft") {
+			setBoard(moveRight(board))
+		}
+		if (e.key === "d" || e.key === "ArrowRight") {
+			setBoard(moveLeft(board))
+		}
+	}
+
+	function addKeyboardHooks(e: KeyboardEvent) {
 		e.preventDefault()
 		if (disabled)
 			return
 		if (e.key === "w" || e.key === "ArrowUp") {
 			setBoard(moveUp(board))
-			setText("Up")
 		}
 		if (e.key === "s" || e.key === "ArrowDown") {
 			setBoard(moveDown(board))
-			setText("Down")
 		}
 		if (e.key === "a" || e.key === "ArrowLeft") {
 			setBoard(moveLeft(board))
-			setText("Left")
 		}
 		if (e.key === "d" || e.key === "ArrowRight") {
 			setBoard(moveRight(board))
-			setText("Right")
 		}
 	}
 
@@ -327,11 +361,11 @@ function Board({ input }: { input: number[] }) {
 	}, [])
 
 	useEffect(() => {
-		window.addEventListener("keydown", addKeyboardHooks)
+		window.addEventListener("keydown", keyBoardHooksSelector(revertMoves))
 		return (() => {
-			window.removeEventListener("keydown", addKeyboardHooks)
+			window.removeEventListener("keydown", keyBoardHooksSelector(revertMoves))
 		})
-	}, [board, disabled])
+	}, [board, disabled, revertMoves])
 
 	useEffect(() => {
 		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
@@ -358,9 +392,6 @@ function Board({ input }: { input: number[] }) {
 				</Grid>
 				<Box textAlign="center">
 					<Button variant="contained" disabled={disabled} onClick={() => { if (custom) { setCustom(false) } else { fetchBoard() } }}>New Grid</Button>
-					{/*
-					<Button variant="contained" disabled={disabled} onClick={() => solve("default", allowPreviousCompute)}>Solve</Button>
-					*/}
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else { setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
@@ -368,9 +399,9 @@ function Board({ input }: { input: number[] }) {
 					<Button variant="contained" disabled={disabled} onClick={() => { setSnailDisposition(!snailDisposition) }}>Switch to {snailDisposition ? "Standard" : "Snail"}</Button>
 				</Box>
 				<Box>
-					<FormGroup >
-						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
-						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox />} onChange={handleRevert} label="Revert Moves" />
+					<FormGroup sx={{ display: "flex", flexFlow: "row wrap" }}>
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} />} onChange={handleRevert} label="Revert Moves" />
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
