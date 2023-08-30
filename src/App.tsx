@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { SwipeableHandlers, useSwipeable } from "react-swipeable";
 
+import {isEqual, formatSolution, moveDown, moveLeft, moveRight, moveUp, revertSolution} from "./utils"
+
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
 import '@fontsource/roboto/500.css';
@@ -19,128 +21,12 @@ const commonStyles: SxProps = {
 	backgroundColor: "lightsteelblue"
 }
 
-type Pos2D = {
-	X: number,
-	Y: number,
-}
-
 var swipeConfig = {
 	preventScrollOnSwipe: true,
 }
 
 var flatSnailWinGrid: number[] = [1, 2, 3, 4, 12, 13, 14, 5, 11, 0, 15, 6, 10, 9, 8, 7]
 var flatRegularWinGrid: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0]
-
-function isEqual(a: number[], b: number[]): boolean {
-	if (a.length != b.length)
-		return false
-	for (let i = 0; i < a.length; i++) {
-		if (a[i] !== b[i])
-			return false
-	}
-	return true
-}
-
-function getEmptySpot(board: number[][]): Pos2D {
-	for (let i = 0; i < 4; i++) {
-		for (let j = 0; j < 4; j++) {
-			if (board[i][j] == 0)
-				return { Y: i, X: j }
-		}
-	}
-	return { Y: -1, X: -1 }
-}
-
-function expandArray(board: number[]): number[][] {
-	const expandedArray: number[][] = []
-	for (let i = 0; i < 4; i++) {
-		expandedArray.push(
-			board.slice(4 * i, 4 * (i + 1))
-		)
-	}
-	return expandedArray
-}
-
-function flattenArray(board: number[][]): number[] {
-	const flattenedArray: number[] = []
-	for (let i = 0; i < 4; i++) {
-		for (let j = 0; j < 4; j++) {
-			flattenedArray.push(board[i][j])
-		}
-	}
-	return flattenedArray
-}
-
-function revertSolution(solution: string): string {
-	return solution.split("").map((move: string) => {
-		switch (move) {
-			case "U":
-				return "D"
-			case "D":
-				return "U"
-			case "L":
-				return "R"
-			case "R":
-				return "L"
-			default:
-				return move
-		}
-	}).join("")
-}
-
-function formatSolution(text: string, divideCount: number): string {
-	return text.split("").map((letter, index) => {
-		if ((index != 0) && (index != text.length - 1) && (index % divideCount == 0))
-			return " | " + letter
-		else if (index == 0 && index == text.length - 1)
-			return "[" + letter + "]"
-		else if (index == 0)
-			return "[" + letter
-		else if (index == text.length - 1)
-			return letter + "]"
-		return letter
-	}).join("")
-}
-
-function moveUp(board: number[]): number[] {
-	const expandedArray: number[][] = expandArray(board)
-	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
-	if (posEmtpySpot.Y > 0) {
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y - 1][posEmtpySpot.X]
-		expandedArray[posEmtpySpot.Y - 1][posEmtpySpot.X] = 0
-	}
-	return flattenArray(expandedArray)
-}
-
-function moveDown(board: number[]): number[] {
-	const expandedArray: number[][] = expandArray(board)
-	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
-	if (posEmtpySpot.Y < 4 - 1) {
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y + 1][posEmtpySpot.X]
-		expandedArray[posEmtpySpot.Y + 1][posEmtpySpot.X] = 0
-	}
-	return flattenArray(expandedArray)
-}
-
-function moveLeft(board: number[]): number[] {
-	const expandedArray: number[][] = expandArray(board)
-	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
-	if (posEmtpySpot.X > 0) {
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y][posEmtpySpot.X - 1]
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X - 1] = 0
-	}
-	return flattenArray(expandedArray)
-}
-
-function moveRight(board: number[]): number[] {
-	const expandedArray: number[][] = expandArray(board)
-	const posEmtpySpot: Pos2D = getEmptySpot(expandedArray)
-	if (posEmtpySpot.X < 4 - 1) {
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X] = expandedArray[posEmtpySpot.Y][posEmtpySpot.X + 1]
-		expandedArray[posEmtpySpot.Y][posEmtpySpot.X + 1] = 0
-	}
-	return flattenArray(expandedArray)
-}
 
 function handleCellClick(custom: boolean, row: number, column: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>>) {
 	let biggest: number = 0
@@ -161,7 +47,7 @@ function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom:
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
 				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
-					<Typography sx={{ color: win ? "green" : "black", fontSize: "8vw", opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
+					<Typography sx={{ color: win ? "green" : "black", fontSize: "8vw", '@media (min-width:800px)': { fontSize: '64px' }, opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
 						{input[4 * index + i]}
 					</Typography>
 				</Box>
@@ -176,8 +62,8 @@ function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom:
 }
 
 
-function Board({ input }: { input: number[] }) {
-	const [board, setBoard] = useState<number[]>(input)
+function Board() {
+	const [board, setBoard] = useState<number[]>([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
 	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
 	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [custom, setCustom] = useState<boolean>(false)
@@ -322,7 +208,7 @@ function Board({ input }: { input: number[] }) {
 
 	function addRevertedKeyboardHooks(e: KeyboardEvent) {
 		e.preventDefault()
-		if (disabled)
+		if (disabled || custom)
 			return
 		if (e.key === "w" || e.key === "ArrowUp") {
 			setBoard(moveDown(board))
@@ -340,7 +226,7 @@ function Board({ input }: { input: number[] }) {
 
 	function addKeyboardHooks(e: KeyboardEvent) {
 		e.preventDefault()
-		if (disabled)
+		if (disabled || custom)
 			return
 		if (e.key === "w" || e.key === "ArrowUp") {
 			setBoard(moveUp(board))
@@ -365,15 +251,16 @@ function Board({ input }: { input: number[] }) {
 		return (() => {
 			window.removeEventListener("keydown", keyBoardHooksSelector(revertMoves))
 		})
-	}, [board, disabled, revertMoves])
+	}, [board, disabled, revertMoves, custom])
 
 	useEffect(() => {
-		let flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
-		if (isEqual(board, flatWinGrid))
+		const flatWinGrid = snailDisposition ? flatSnailWinGrid : flatRegularWinGrid
+		const currentBoard = custom ? customBoard : board
+		if (isEqual(currentBoard, flatWinGrid))
 			setWin(true)
 		else
 			setWin(false)
-	}, [board, snailDisposition])
+	}, [board, customBoard, snailDisposition, custom])
 
 	function handlePrevious(event: React.BaseSyntheticEvent) {
 		setAllowPreviousCompute(event.target.checked)
@@ -386,8 +273,8 @@ function Board({ input }: { input: number[] }) {
 
 	return (
 		<>
-			<Box {...handlers} sx={{ height: "100vh", touchAction: "none" }}>
-				<Grid sx={{ margin: "auto", maxWidth: 800 }}>
+			<Box {...handlers} sx={{ height: "100vh", touchAction: "none", maxWidth: 800, margin: "auto" }}>
+				<Grid sx={{ margin: "auto"}}>
 					{
 						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
 					}
@@ -416,9 +303,8 @@ function Board({ input }: { input: number[] }) {
 }
 
 function App() {
-	const input: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 	return (
-		<Board input={input}></Board>
+		<Board></Board>
 	)
 }
 
