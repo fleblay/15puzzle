@@ -85,8 +85,22 @@ function revertSolution(solution: string): string {
 			case "R":
 				return "L"
 			default:
-				return "?"
+				return move
 		}
+	}).join("")
+}
+
+function formatSolution(text: string, divideCount: number): string {
+	return text.split("").map((letter, index) => {
+		if ((index != 0) && (index != text.length - 1) && (index % divideCount == 0))
+			return " | " + letter
+		else if (index == 0 && index == text.length - 1)
+			return "[" + letter + "]"
+		else if (index == 0)
+			return "[" + letter
+		else if (index == text.length - 1)
+			return letter + "]"
+		return letter
 	}).join("")
 }
 
@@ -209,7 +223,7 @@ function Board({ input }: { input: number[] }) {
 				const newboard: number[] = data.board.trim().split(" ").map(elem => +elem)
 				setBoard(newboard)
 				setPreviousBoard(newboard)
-				setText("Successfully fetched a randomly generated grid !")
+				setText("Successfully fetched grid !")
 			})
 			.catch(e => {
 				console.log("fetch error : ", e)
@@ -241,9 +255,9 @@ function Board({ input }: { input: number[] }) {
 				if (data.status == "OK" || data.status == "DB") {
 					console.log("Here is the solution you smarty-pants ;P : ", data.solution)
 					if (!revertMoves) {
-						setSolution(data.solution)
+						setSolution(formatSolution(data.solution, 10))
 					} else {
-						setSolution(revertSolution(data.solution))
+						setSolution(formatSolution(revertSolution(data.solution), 10))
 					}
 					if (data.status == "OK")
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
@@ -350,11 +364,11 @@ function Board({ input }: { input: number[] }) {
 					<Button variant="contained" disabled={disabled} onClick={() => solve("astar", allowPreviousCompute)}>Solve with A*</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => solve("ida", allowPreviousCompute)}>Solve with IDA</Button>
 					<Button variant="contained" disabled={disabled} onClick={() => { if (!custom) { setBoard(previousBoard) } else { setCustomBoard([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) } }}>Reset {custom ? "Custom" : ""} Board</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(!custom) }}>Switch to {custom ? "Random" : "Custom"} Mode</Button>
-					<Button variant="contained" disabled={disabled} onClick={() => { setSnailDisposition(!snailDisposition) }}>Switch to {snailDisposition ? "Standard" : "Snail"} Disposition</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { setCustom(!custom) }}>Switch to {custom ? "Random" : "Custom"}</Button>
+					<Button variant="contained" disabled={disabled} onClick={() => { setSnailDisposition(!snailDisposition) }}>Switch to {snailDisposition ? "Standard" : "Snail"}</Button>
 				</Box>
 				<Box>
-					<FormGroup aria-invalid>
+					<FormGroup >
 						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
 						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox />} onChange={handleRevert} label="Revert Moves" />
 					</FormGroup>
