@@ -71,6 +71,7 @@ function Board() {
 	const [text, setText] = useState<string>("")
 	const [solution, setSolution] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
+	const [quickSolve, setQuickSolve] = useState<boolean>(false)
 	const [revertMoves, setRevertMoves] = useState<boolean>(false)
 	const [snailDisposition, setSnailDisposition] = useState<boolean>(false)
 	const [win, setWin] = useState<boolean>(false)
@@ -145,7 +146,8 @@ function Board() {
 				size: 4,
 				board: currentBoard.map(e => e.toString()).join(" "),
 				previousCompute,
-				disposition: snailDisposition ? "snail" : "zerolast"
+				disposition: snailDisposition ? "snail" : "zerolast",
+				quickSolve
 			},
 				{
 					timeout: 3600 * 1000
@@ -159,7 +161,7 @@ function Board() {
 						setSolution(formatSolution(revertSolution(data.solution), 10))
 					}
 					if (data.status == "OK")
-						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
+						setText(`Found ${quickSolve ? "a quick" : "an optimal"} solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
 						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D). First compute was with ${data.algo} in ${data.time}`)
 					let newBoard = currentBoard
@@ -179,7 +181,7 @@ function Board() {
 						await new Promise(r => setTimeout(r, 100))
 					}
 				} else if (data.status == "RAM") {
-					setText(`Filled up server RAM in ${data.time}. You should try again with IDA, but beware, it may take some time...`)
+					setText(`Filled up server RAM in ${data.time}. You should try again with QuickSolve (or regular IDA, but beware, it may take some time...)`)
 				} else if (data.status == "RUNNING") {
 					setText(`This grid is already being solved by the server. Wait a bit please !`)
 				} else if (data.status == "BUSY") {
@@ -271,6 +273,10 @@ function Board() {
 		setSolution(revertSolution(solution))
 	}
 
+	function handleQuick(event: React.BaseSyntheticEvent) {
+		setQuickSolve(event.target.checked)
+	}
+
 	return (
 		<>
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none", maxWidth: 800, margin: "auto" }}>
@@ -289,8 +295,9 @@ function Board() {
 				</Box>
 				<Box>
 					<FormGroup sx={{ display: "flex", flexFlow: "row wrap" }}>
-						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} defaultChecked />} onChange={handlePrevious} label="Allow solutions from DB" />
 						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} />} onChange={handleRevert} label="Revert Moves" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} />} onChange={handleQuick} label="Quick Solve" />
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
