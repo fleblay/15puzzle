@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { SwipeableHandlers, useSwipeable } from "react-swipeable";
 
-import {isEqual, formatSolution, moveDown, moveLeft, moveRight, moveUp, revertSolution} from "./utils"
+import { isEqual, formatSolution, moveDown, moveLeft, moveRight, moveUp, revertSolution } from "./utils"
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -15,7 +15,7 @@ import '@fontsource/roboto/700.css';
 
 const commonStyles: SxProps = {
 	border: 2,
-	borderRadius: 1,
+	borderRadius: 2,
 	margin: 0.5,
 	aspectRatio: 1.2,
 	backgroundColor: "lightsteelblue"
@@ -40,15 +40,17 @@ function handleCellClick(custom: boolean, row: number, column: number, input: nu
 	}
 }
 
-function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
+function Row({ win, custom, index, input, solution, updateBoard }: { win: boolean, custom: boolean, index: number, input: number[], solution: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
-					<Typography sx={{ color: win ? "green" : "black", fontSize: "8vw", '@media (min-width:800px)': { fontSize: '64px' }, opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
-						{input[4 * index + i]}
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles}} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
+					<Typography sx={{
+						color: win ? "rgb(25, 112, 25) " : solution[4 * index + i] == input[4 * index + i] ? "rgb(180, 125, 20)" : "rgb(80, 80, 80)", fontSize: "8vw", '@media (min-width:800px)': { fontSize: '64px' }, opacity: input[4 * index + i] != 0 ? 1 : 0, transition: "opacity 0.3s ease-in 0s, color 0.3s ease-in 0s"
+					}}>
+						{input[4 * index + i] != 0 ? input[4 * index + i] : ""}
 					</Typography>
 				</Box>
 			</Grid>
@@ -63,7 +65,7 @@ function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom:
 
 
 function Board() {
-	const [board, setBoard] = useState<number[]>([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+	const [board, setBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
 	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [custom, setCustom] = useState<boolean>(false)
@@ -280,9 +282,9 @@ function Board() {
 	return (
 		<>
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none", maxWidth: 800, margin: "auto" }}>
-				<Grid sx={{ margin: "auto"}}>
+				<Grid sx={{ margin: "auto" }}>
 					{
-						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
+						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} solution={snailDisposition ? flatSnailWinGrid : flatRegularWinGrid} updateBoard={setCustomBoard}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
