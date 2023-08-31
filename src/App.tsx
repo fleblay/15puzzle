@@ -152,7 +152,7 @@ function Board() {
 				{
 					timeout: 3600 * 1000
 				})
-			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
+			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
 					console.log("Here is the solution you smarty-pants ;P : ", data.solution)
 					if (!revertMoves) {
