@@ -185,7 +185,7 @@ function Board({ input }: { input: number[] }) {
 				{
 					timeout: 3600 * 1000
 				})
-			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, fallback: boolean, workers: number } }) => {
+			.then(async ({ data }: { data: { status: string, solution: string, time: string, algo: string, workers: number } }) => {
 				if (data.status == "OK" || data.status == "DB") {
 					if (data.status == "OK")
 						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
