@@ -15,7 +15,7 @@ import '@fontsource/roboto/700.css';
 
 const commonStyles: SxProps = {
 	border: 2,
-	borderRadius: 1,
+	borderRadius: 2,
 	margin: 0.5,
 	aspectRatio: 1.2,
 	backgroundColor: "lightsteelblue"
@@ -40,15 +40,17 @@ function handleCellClick(custom: boolean, row: number, column: number, input: nu
 	}
 }
 
-function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom: boolean, index: number, input: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
+function Row({ win, custom, index, input, solution, updateBoard }: { win: boolean, custom: boolean, index: number, input: number[], solution: number[], updateBoard: React.Dispatch<React.SetStateAction<number[]>> }) {
 	const cells: React.ReactElement[] = []
 
 	for (let i = 0; i < 4; i++) {
 		cells.push(
 			<Grid key={`${index}.${i}`} item xs={3} >
-				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles }} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
-					<Typography sx={{ color: win ? "green" : "black", fontSize: "8vw", '@media (min-width:800px)': { fontSize: '64px' }, opacity: input[4 * index + i] != 0 ? 1 : 0 }}>
-						{input[4 * index + i]}
+				<Box display="flex" justifyContent="center" alignItems="center" sx={{ ...commonStyles}} onClick={(e) => { e.preventDefault(); handleCellClick(custom, index, i, input, updateBoard) }}>
+					<Typography sx={{
+						color: win ? "rgb(25, 112, 25) " : solution[4 * index + i] == input[4 * index + i] ? "rgb(180, 125, 20)" : "rgb(80, 80, 80)", fontSize: "8vw", '@media (min-width:800px)': { fontSize: '64px' }, opacity: input[4 * index + i] != 0 ? 1 : 0, transition: "opacity 0.3s ease-in 0s, color 0.3s ease-in 0s"
+					}}>
+						{input[4 * index + i] != 0 ? input[4 * index + i] : ""}
 					</Typography>
 				</Box>
 			</Grid>
@@ -71,6 +73,7 @@ function Board() {
 	const [text, setText] = useState<string>("")
 	const [solution, setSolution] = useState<string>("")
 	const [allowPreviousCompute, setAllowPreviousCompute] = useState<boolean>(true)
+	const [quickSolve, setQuickSolve] = useState<boolean>(false)
 	const [revertMoves, setRevertMoves] = useState<boolean>(false)
 	const [snailDisposition, setSnailDisposition] = useState<boolean>(false)
 	const [win, setWin] = useState<boolean>(false)
@@ -145,7 +148,8 @@ function Board() {
 				size: 4,
 				board: currentBoard.map(e => e.toString()).join(" "),
 				previousCompute,
-				disposition: snailDisposition ? "snail" : "zerolast"
+				disposition: snailDisposition ? "snail" : "zerolast",
+				quickSolve
 			},
 				{
 					timeout: 3600 * 1000
@@ -159,7 +163,7 @@ function Board() {
 						setSolution(formatSolution(revertSolution(data.solution), 10))
 					}
 					if (data.status == "OK")
-						setText(`Found a solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
+						setText(`Found ${quickSolve ? "a quick" : "an optimal"} solution of ${data.solution.length} move(s) in ${data.time} with ${data.algo} and ${data.algo !== "IDA" ? data.workers : "1"} threads!`)
 					if (data.status == "DB")
 						setText(`Found a solution of ${data.solution.length} move(s) from the solution database (lazy is smart ;D). First compute was with ${data.algo} in ${data.time}`)
 					let newBoard = currentBoard
@@ -179,7 +183,7 @@ function Board() {
 						await new Promise(r => setTimeout(r, 100))
 					}
 				} else if (data.status == "RAM") {
-					setText(`Filled up server RAM in ${data.time}. You should try again with IDA, but beware, it may take some time...`)
+					setText(`Filled up server RAM in ${data.time}. You should try again with QuickSolve (or regular IDA, but beware, it may take some time...)`)
 				} else if (data.status == "RUNNING") {
 					setText(`This grid is already being solved by the server. Wait a bit please !`)
 				} else if (data.status == "BUSY") {
@@ -271,12 +275,16 @@ function Board() {
 		setSolution(revertSolution(solution))
 	}
 
+	function handleQuick(event: React.BaseSyntheticEvent) {
+		setQuickSolve(event.target.checked)
+	}
+
 	return (
 		<>
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none", maxWidth: 800, margin: "auto" }}>
 				<Grid sx={{ margin: "auto" }}>
 					{
-						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
+						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} solution={snailDisposition ? flatSnailWinGrid : flatRegularWinGrid} updateBoard={setCustomBoard}></Row>)
 					}
 				</Grid>
 				<Box textAlign="center">
@@ -289,8 +297,9 @@ function Board() {
 				</Box>
 				<Box>
 					<FormGroup sx={{ display: "flex", flexFlow: "row wrap" }}>
-						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} defaultChecked />} onChange={handlePrevious} label="Allow previously computed solutions" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} defaultChecked />} onChange={handlePrevious} label="Allow solutions from DB" />
 						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} />} onChange={handleRevert} label="Revert Moves" />
+						<FormControlLabel sx={{ margin: "auto" }} control={<Checkbox sx={{ padding: "2px 9px" }} />} onChange={handleQuick} label="Quick Solve" />
 					</FormGroup>
 				</Box>
 				<Box textAlign="center">
