@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { SwipeableHandlers, useSwipeable } from "react-swipeable";
 
-import {isEqual, formatSolution, moveDown, moveLeft, moveRight, moveUp, revertSolution} from "./utils"
+import { isEqual, formatSolution, moveDown, moveLeft, moveRight, moveUp, revertSolution } from "./utils"
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -63,7 +63,7 @@ function Row({ win, custom, index, input, updateBoard }: { win: boolean, custom:
 
 
 function Board() {
-	const [board, setBoard] = useState<number[]>([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+	const [board, setBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [previousBoard, setPreviousBoard] = useState<number[]>(board)
 	const [customBoard, setCustomBoard] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 	const [custom, setCustom] = useState<boolean>(false)
@@ -274,7 +274,7 @@ function Board() {
 	return (
 		<>
 			<Box {...handlers} sx={{ height: "100vh", touchAction: "none", maxWidth: 800, margin: "auto" }}>
-				<Grid sx={{ margin: "auto"}}>
+				<Grid sx={{ margin: "auto" }}>
 					{
 						[...Array(4)].map((_, i) => <Row win={win} custom={custom} key={i} index={i} input={custom ? customBoard : board} updateBoard={setCustomBoard}></Row>)
 					}
